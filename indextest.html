@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<link rel="manifest" href="manifest.json">
+<title>Fibonacci Flow</title>
+
+<style>
+html {
+	background-color:black;
+}
+
+body {
+  margin: 0;
+  height: 100%;
+  background-colour: black;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: white;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 5em;
+  transition: background-color 1s linear;
+  user-select: none;
+}
+</style>
+</head>
+<body>
+
+<div id="display">5:00</div>
+
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('service-worker.js');
+}
+
+// Wake Lock
+let wakeLock = null;
+async function requestWakeLock() {
+  try {
+    wakeLock = await navigator.wakeLock.request('screen');
+  } catch (err) {}
+}
+requestWakeLock();
+
+const display = document.getElementById("display");
+
+const fibonacci = [1,1,2,3,5,8,13];
+const totalFib = fibonacci.reduce((a,b)=>a+b,0);
+const scale = 13 / totalFib;
+
+const segments = fibonacci.map(n => n * scale * 60);
+
+const colors = [
+  '#550000',
+  '#553000',
+  '#555500',
+  '#003300',
+  '#000055',
+  '#220044',
+  '#330033'
+];
+
+let paused = false;
+let currentTimeout;
+let currentInterval;
+
+document.body.addEventListener("click", () => {
+  paused = !paused;
+});
+
+function safeTimeout(fn, delay) {
+  const start = Date.now();
+  function check() {
+    if (paused) {
+      currentTimeout = setTimeout(check, 200);
+    } else {
+      const elapsed = Date.now() - start;
+      if (elapsed >= delay) fn();
+      else currentTimeout = setTimeout(check, delay - elapsed);
+    }
+  }
+  currentTimeout = setTimeout(check, delay);
+}
+
+function pulse(color, seconds, done) {
+  let count = 0;
+  currentInterval = setInterval(() => {
+    if (!paused) {
+      document.body.style.backgroundColor =
+        count % 2 === 0 ? "black" : color;
+      count++;
+      if (count >= seconds) {
+        clearInterval(currentInterval);
+        done();
+      }
+    }
+  }, 1000);
+}
+
+function startFibonacci() {
+  display.textContent = "";
+  let i = 0;
+
+  function next() {
+    if (i >= segments.length) return;
+
+    const duration = segments[i];
+    const color = colors[i];
+
+    document.body.style.backgroundColor = color;
+
+    if (i < segments.length - 1) {
+      safeTimeout(() => {
+        pulse(color, 10, () => {
+          i++;
+          next();
+        });
+      }, (duration - 10) * 1000);
+    } else {
+      safeTimeout(() => {
+        pulse(color, 30, () => {
+          i++;
+        });
+      }, (duration - 30) * 1000);
+    }
+  }
+
+  next();
+}
+
+function startPreFade() {
+  let count = 0;
+  currentInterval = setInterval(() => {
+    if (!paused) {
+      document.body.style.backgroundColor =
+        count % 2 === 0 ? "black" : "#444";
+      count++;
+      if (count >= 10) {
+        clearInterval(currentInterval);
+        startFibonacci();
+      }
+    }
+  }, 1000);
+}
+
+function startCountdown() {
+  let seconds = 300;
+
+  currentInterval = setInterval(() => {
+    if (!paused) {
+      let m = Math.floor(seconds / 60);
+      let s = seconds % 60;
+      display.textContent =
+        m + ":" + s.toString().padStart(2, "0");
+      seconds--;
+      if (seconds < 0) {
+        clearInterval(currentInterval);
+        startPreFade();
+      }
+    }
+  }, 1000);
+}
+
+startCountdown();
+</script>
+
+</body>
+</html>
