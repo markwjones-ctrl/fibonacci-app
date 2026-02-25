@@ -2,166 +2,185 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#000000">
-<link rel="manifest" href="manifest.json">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Fibonacci Flow</title>
 
 <style>
-/*html {
-	background-color:black;
-}*/
+html, body {
+  margin: 0;
+  height: 100%;
+  background: black;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  color: white;
+  font-size: 5em;
+  transition: background-color 1s linear;
+  overflow: hidden;
+}
 
-body {
-  margin: 0;
-  height: 100%;
-  background-colour: black;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  color: white;
-  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-  font-size: 5em;
-  transition: background-color 1s linear;
-  user-select: none;
+/* Center Dot */
+#dot {
+  position: absolute;
+  width: 50px;
+  height: 50px;
+  background: white;
+  border-radius: 50%;
+  opacity: 0;
+  transition: opacity 0.1s linear;
 }
 </style>
 </head>
+
 <body>
 
 <div id="display">5:00</div>
+<div id="dot"></div>
 
 <script>
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('service-worker.js');
-}
-
-// Wake Lock
-let wakeLock = null;
-async function requestWakeLock() {
-  try {
-    wakeLock = await navigator.wakeLock.request('screen');
-  } catch (err) {}
-}
-requestWakeLock();
-
 const display = document.getElementById("display");
+const dot = document.getElementById("dot");
 
+let paused = false;
+document.body.addEventListener("click", () => paused = !paused);
+
+// Fibonacci scaling
 const fibonacci = [1,1,2,3,5,8,13];
 const totalFib = fibonacci.reduce((a,b)=>a+b,0);
 const scale = 13 / totalFib;
-
 const segments = fibonacci.map(n => n * scale * 60);
 
+// Colours
 const colors = [
-  '#550000',
-  '#553000',
-  '#555500',
-  '#003300',
-  '#000055',
-  '#220044',
-  '#330033'
+  '#550000',
+  '#553000',
+  '#555500',
+  '#003300',
+  '#000055',
+  '#220044',
+  '#330033'
 ];
 
-let paused = false;
-let currentTimeout;
-let currentInterval;
+// Dot pulse patterns per segment
+const pulsePatterns = [
+  { pulses:1, interval:3 },
+  { pulses:1, interval:2 },
+  { pulses:1, interval:1 },
+  { pulses:2, interval:3 },
+  { pulses:2, interval:1 },
+  { pulses:3, interval:1 },
+  { pulses:4, interval:1 }
+];
 
-document.body.addEventListener("click", () => {
-  paused = !paused;
-});
+let activeDotInterval;
 
-function safeTimeout(fn, delay) {
-  const start = Date.now();
-  function check() {
-    if (paused) {
-      currentTimeout = setTimeout(check, 200);
-    } else {
-      const elapsed = Date.now() - start;
-      if (elapsed >= delay) fn();
-      else currentTimeout = setTimeout(check, delay - elapsed);
-    }
-  }
-  currentTimeout = setTimeout(check, delay);
+function startDotPattern(pattern) {
+  clearInterval(activeDotInterval);
+
+  let secondCounter = 0;
+
+  activeDotInterval = setInterval(() => {
+    if (paused) return;
+
+    const { pulses, interval } = pattern;
+
+    if (secondCounter % interval === 0) {
+      for (let i = 0; i < pulses; i++) {
+        setTimeout(() => {
+          dot.style.opacity = 1;
+          setTimeout(() => dot.style.opacity = 0, 200);
+        }, i * 200);
+      }
+    }
+
+    secondCounter++;
+  }, 1000);
 }
 
-function pulse(color, seconds, done) {
-  let count = 0;
-  currentInterval = setInterval(() => {
-    if (!paused) {
-      document.body.style.backgroundColor =
-        count % 2 === 0 ? "black" : color;
-      count++;
-      if (count >= seconds) {
-        clearInterval(currentInterval);
-        done();
-      }
-    }
-  }, 1000);
+function stopDot() {
+  clearInterval(activeDotInterval);
+  dot.style.opacity = 0;
+}
+
+function pulseToBlack(color, seconds, done) {
+  stopDot();
+  let count = 0;
+  const pulse = setInterval(() => {
+    if (!paused) {
+      document.body.style.backgroundColor =
+        count % 2 === 0 ? "black" : color;
+      count++;
+      if (count >= seconds) {
+        clearInterval(pulse);
+        done();
+      }
+    }
+  }, 1000);
 }
 
 function startFibonacci() {
-  display.textContent = "";
-  let i = 0;
+  display.textContent = "";
+  let i = 0;
 
-  function next() {
-    if (i >= segments.length) return;
+  function next() {
+    if (i >= segments.length) return;
 
-    const duration = segments[i];
-    const color = colors[i];
+    const duration = segments[i];
+    const color = colors[i];
 
-    document.body.style.backgroundColor = color;
+    document.body.style.backgroundColor = color;
+    startDotPattern(pulsePatterns[i]);
 
-    if (i < segments.length - 1) {
-      safeTimeout(() => {
-        pulse(color, 10, () => {
-          i++;
-          next();
-        });
-      }, (duration - 10) * 1000);
-    } else {
-      safeTimeout(() => {
-        pulse(color, 30, () => {
-          i++;
-        });
-      }, (duration - 30) * 1000);
-    }
-  }
+    if (i < segments.length - 1) {
+      setTimeout(() => {
+        pulseToBlack(color, 10, () => {
+          i++;
+          next();
+        });
+      }, (duration - 10) * 1000);
+    } else {
+      setTimeout(() => {
+        pulseToBlack(color, 30, () => {
+          i++;
+        });
+      }, (duration - 30) * 1000);
+    }
+  }
 
-  next();
+  next();
 }
 
 function startPreFade() {
-  let count = 0;
-  currentInterval = setInterval(() => {
-    if (!paused) {
-      document.body.style.backgroundColor =
-        count % 2 === 0 ? "black" : "#444";
-      count++;
-      if (count >= 10) {
-        clearInterval(currentInterval);
-        startFibonacci();
-      }
-    }
-  }, 1000);
+  let count = 0;
+  const fade = setInterval(() => {
+    if (!paused) {
+      document.body.style.backgroundColor =
+        count % 2 === 0 ? "black" : "#444";
+      count++;
+      if (count >= 10) {
+        clearInterval(fade);
+        startFibonacci();
+      }
+    }
+  }, 1000);
 }
 
 function startCountdown() {
-  let seconds = 300;
-
-  currentInterval = setInterval(() => {
-    if (!paused) {
-      let m = Math.floor(seconds / 60);
-      let s = seconds % 60;
-      display.textContent =
-        m + ":" + s.toString().padStart(2, "0");
-      seconds--;
-      if (seconds < 0) {
-        clearInterval(currentInterval);
-        startPreFade();
-      }
-    }
-  }, 1000);
+  let seconds = 300;
+  const countdown = setInterval(() => {
+    if (!paused) {
+      let m = Math.floor(seconds / 60);
+      let s = seconds % 60;
+      display.textContent =
+        m + ":" + s.toString().padStart(2, "0");
+      seconds--;
+      if (seconds < 0) {
+        clearInterval(countdown);
+        startPreFade();
+      }
+    }
+  }, 1000);
 }
 
 startCountdown();
