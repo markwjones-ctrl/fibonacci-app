@@ -122,11 +122,20 @@ function runFibonacci() {
     const warningTime = (i === segments.length - 1) ? 30 : 10;
 
     setTimeout(() => {
-      pulseToBlack(color, warningTime, () => {
-        i++;
-        nextSegment();
-      });
-    }, (duration - warningTime) * 1000);
+  pulseToBlack(color, warningTime, () => {
+    
+    if (i === segments.length - 1) {
+      // Final segment complete
+      stopDot();
+      document.body.style.backgroundColor = "black";
+      return;
+    }
+
+    i++;
+    nextSegment();
+
+  });
+}, (duration - warningTime) * 1000);
   }
 
   nextSegment();
