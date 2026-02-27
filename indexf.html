@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fibonacci Flow</title>
+
+<style>
+html, body {
+  margin: 0;
+  height: 100%;
+  background: black;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  color: #333333;
+  font-size: 3em;
+  transition: background-color 1s linear;
+  overflow: hidden;
+}
+
+/* Center dot */
+#dot {
+  position: absolute;
+  width: 50px;
+  height: 50px;
+  background: #666666;
+  border-radius: 50%;
+  opacity: 0;
+}
+</style>
+</head>
+
+<body>
+
+<div id="display">5:00</div>
+<div id="dot"></div>
+
+<script>
+const display = document.getElementById("display");
+const dot = document.getElementById("dot");
+
+let paused = false;
+let activeDotInterval;
+let segmentTimer;
+let sequenceActive = false;
+
+// Pause/resume toggle on tap
+document.body.addEventListener("click", () => paused = !paused);
+
+// Fibonacci scaling
+const fibonacci = [1,1,2,3,5,8,13];
+const totalFib = fibonacci.reduce((a,b)=>a+b,0);
+const scale = 13 / totalFib;
+const segments = fibonacci.map(n => n * scale * 60); // seconds
+
+// Colours
+const colors = [
+  '#550000',
+  '#553000',
+  '#555500',
+  '#003300',
+  '#000055',
+  '#220044',
+  '#330033'
+];
+
+// Pulse intervals in ms for accelerating dot
+const pulseIntervals = [
+  3000,
+  2000,
+  1000,
+  1500,
+  500,
+  333,
+  250
+];
+
+// Start dot pulse
+function startDot(interval) {
+  clearInterval(activeDotInterval);
+  activeDotInterval = setInterval(() => {
+    if (paused) return;
+    dot.style.opacity = 1;
+    setTimeout(() => dot.style.opacity = 0, 200);
+  }, interval);
+}
+
+// Stop dot
+function stopDot() {
+  clearInterval(activeDotInterval);
+  dot.style.opacity = 0;
+}
+
+// Pulse background to black for warning
+function pulseToBlack(color, seconds, done) {
+  stopDot();
+  let count = 0;
+  segmentTimer = setInterval(() => {
+    if (!paused) {
+      document.body.style.backgroundColor =
+        count % 2 === 0 ? "black" : color;
+      count++;
+      if (count >= seconds) {
+        clearInterval(segmentTimer);
+        done();
+      }
+    }
+  }, 1000);
+}
+
+// Hard stop function (tap to black)
+function endSequence() {
+  if (!sequenceActive) return;
+  sequenceActive = false;
+  clearInterval(activeDotInterval);
+  clearTimeout(segmentTimer);
+  document.body.style.backgroundColor = "black";
+  dot.style.opacity = 0;
+}
+
+// Listen for tap anywhere for hard stop
+document.addEventListener("touchstart", endSequence);
+document.addEventListener("click", endSequence);
+
+// Fibonacci sequence runner
+function runFibonacci() {
+  sequenceActive = true;
+  display.textContent = "";
+  let i = 0;
+
+  function nextSegment() {
+    if (!sequenceActive) return;
+
+    if (i >= segments.length) return;
+
+    const duration = segments[i];
+    const color = colors[i];
+
+    document.body.style.backgroundColor = color;
+    startDot(pulseIntervals[i]);
+
+    const warningTime = (i === segments.length - 1) ? 30 : 10;
+
+    segmentTimer = setTimeout(() => {
+      pulseToBlack(color, warningTime, () => {
+        if (i === segments.length - 1) {
+          // Final segment complete
+          stopDot();
+          document.body.style.backgroundColor = "black";
+          sequenceActive = false;
+          return;
+        }
+        i++;
+        nextSegment();
+      });
+    }, (duration - warningTime) * 1000);
+  }
+
+  nextSegment();
+}
+
+// 10-second pre-fade from black to grey
+function startPreFade() {
+  let count = 0;
+  segmentTimer = setInterval(() => {
+    if (!paused) {
+      document.body.style.backgroundColor =
+        count % 2 === 0 ? "black" : "#444";
+      count++;
+      if (count >= 10) {
+        clearInterval(segmentTimer);
+        runFibonacci();
+      }
+    }
+  }, 1000);
+}
+
+// 5-minute countdown
+function startCountdown() {
+  let seconds = 300;
+  segmentTimer = setInterval(() => {
+    if (!paused) {
+      let m = Math.floor(seconds / 60);
+      let s = seconds % 60;
+      display.textContent =
+        m + ":" + s.toString().padStart(2, "0");
+      seconds--;
+      if (seconds < 0) {
+        clearInterval(segmentTimer);
+        startPreFade();
+      }
+    }
+  }, 1000);
+}
+
+// Start the whole sequence
+startCountdown();
+</script>
+
+</body>
+</html>
